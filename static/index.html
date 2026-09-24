@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evidence Analyst</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background: #f5f5f5;
+            color: #222;
+        }
+        .card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        input, select, textarea, button {
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 8px;
+            margin-bottom: 15px;
+            padding: 10px;
+            font-size: 15px;
+        }
+        button {
+            cursor: pointer;
+            background: #222;
+            color: white;
+            border: 0;
+            border-radius: 6px;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .source {
+            border-left: 4px solid #555;
+            padding: 8px 12px;
+            margin: 8px 0;
+            background: #fafafa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Evidence Analyst</h1>
+
+    <div class="card">
+        <h2>Задать вопрос</h2>
+
+        <label>Вопрос</label>
+        <textarea id="goal" rows="4">What is the data retention period?</textarea>
+
+        <label>Role</label>
+        <select id="role">
+            <option value="operator">operator</option>
+            <option value="admin">admin</option>
+        </select>
+
+        <button onclick="runTask()">Запустить анализ</button>
+    </div>
+
+    <div class="card">
+        <h2>Результат</h2>
+        <pre id="result">Здесь появится результат.</pre>
+        <div id="sources"></div>
+    </div>
+
+    <div class="card">
+        <h2>Audit</h2>
+        <pre id="events">Здесь появятся события.</pre>
+    </div>
+
+<script>
+async function runTask() {
+    const taskId = crypto.randomUUID();
+
+    const payload = {
+        task_id: taskId,
+        workspace_id: "demo-a",
+        user_id: "user-7",
+        role: document.getElementById("role").value,
+        goal: document.getElementById("goal").value,
+        context: {},
+        mode: "read_only",
+        limits: {
+            max_steps: 3,
+            max_tool_calls: 1,
+            max_runtime_seconds: 10
+        }
+    };
+
+    const response = await fetch("/tasks", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    document.getElementById("result").textContent =
+        JSON.stringify(data, null, 2);
+
+    if (data.result && data.result.citations) {
+        document.getElementById("sources").innerHTML =
+            data.result.citations.map(source => `
+                <div class="source">
+                    <b>${source.document_id}</b>
+                    — version ${source.source_version}<br>
+                    ${source.fragment}
+                </div>
+            `).join("");
+    }
+
+    const events = await fetch(`/tasks/${taskId}/events`);
+    const eventData = await events.json();
+
+    document.getElementById("events").textContent =
+        JSON.stringify(eventData, null, 2);
+}
+</script>
+</body>
+</html>
